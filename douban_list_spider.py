@@ -9,23 +9,25 @@
 """douban_list_spider.py是一个简单的爬虫，可以根据关键字抓取豆瓣电影、豆瓣读书或者豆瓣音乐的条目信息.
 """
 
-
 # 把str编码由ascii改为utf8（或gb18030）
 import sys
+
 reload(sys)
-sys.setdefaultencoding('utf8')
+#print sys.getdefaultencoding()
+sys.setdefaultencoding('utf-8')
+#print sys.getdefaultencoding()
 
 import time
 import re
 import requests
+import bs4
 from bs4 import BeautifulSoup
-
 
 # ==================== 可配置参数 start ====================
 
-object = 'movie' # 抓取对象
-tag_list = ['动作','科幻','惊悚'] # 感兴趣的任意关键字
-page_num = 2 # 每个标签抓取的页数, 必须为正整数
+object = 'book'  # 抓取对象
+tag_list = ['计算机软件']  # 感兴趣的任意关键字
+page_num = 1  # 每个标签抓取的页数, 必须为正整数
 
 # object = 'book' # 抓取对象
 # tag_list = ['经济学','中国历史','科普'] # 感兴趣的任意关键字
@@ -35,10 +37,14 @@ page_num = 2 # 每个标签抓取的页数, 必须为正整数
 # tag_list = ['莫扎特','贝多芬'] # 感兴趣的任意关键字
 # page_num = 2 # 每个标签抓取的页数, 必须为正整数
 
+# object = 'movie' # 抓取对象
+# tag_list = ['动作','科幻','惊悚'] # 感兴趣的任意关键字
+# page_num = 2 # 每个标签抓取的页数, 必须为正整数
+
 # ==================== 可配置参数 end ====================
 
 
-file_content = '抓取时间：' + time.asctime() + '\n' # 最终要写到文件里的内容
+file_content = '抓取时间：' + time.asctime() + '\n'  # 最终要写到文件里的内容
 file_partial_name = '_list.txt'
 string_return = '\n\t'
 
@@ -69,25 +75,25 @@ def movie_spider(soup, item_num):
     list_soup = soup.find('div', {'class': 'mod movie-list'})
     for douban_info in list_soup.findAll('dd'):
         title = douban_info.find('a', {
-            'class':'title'}).string.strip()
-        desc = douban_info.find('div', {'class':'desc'}).string.strip()
+            'class': 'title'}).string.strip()
+        desc = douban_info.find('div', {'class': 'desc'}).string.strip()
         desc_list = desc.split('/')
 
         if (len(desc_list) > 5):
-            country_info =  '制片国家/地区：' + desc_list[0] + string_return
-            type_info =     '类型：        ' + '/'.join(desc_list[1:-5]) + string_return
-            time_info =     '上映时间：    ' + desc_list[-5] + string_return
+            country_info = '制片国家/地区：' + desc_list[0] + string_return
+            type_info = '类型：        ' + '/'.join(desc_list[1:-5]) + string_return
+            time_info = '上映时间：    ' + desc_list[-5] + string_return
             director_info = '导演：        ' + desc_list[-4] + string_return
-            actor_info =    '主演：        ' + '/'.join(desc_list[-3:]) + string_return
+            actor_info = '主演：        ' + '/'.join(desc_list[-3:]) + string_return
         else:
-            country_info =  '影片信息：    ' + '/'.join(desc_list) + string_return
-            type_info =     ''
-            time_info =     ''
+            country_info = '影片信息：    ' + '/'.join(desc_list) + string_return
+            type_info = ''
+            time_info = ''
             director_info = ''
-            actor_info =    ''
+            actor_info = ''
 
         rating = douban_info.find('span', {
-            'class':'rating_nums'})
+            'class': 'rating_nums'})
         rating = get_rating(rating)
         file_content += "*%d\t《%s》\t评分：%s\n\t%s%s%s%s%s\n\n" % (
             item_num, title, rating, country_info, type_info, time_info, director_info, actor_info)
@@ -98,29 +104,31 @@ def book_spider(soup, item_num):
     global file_content
 
     list_soup = soup.find('div', {'class': 'mod book-list'})
-    for douban_info in list_soup.findAll('dd'):
-        title = douban_info.find('a', {
-            'class':'title'}).string.strip()
-        desc = douban_info.find('div', {'class':'desc'}).string.strip()
-        desc_list = desc.split('/')
-        if (len(desc_list) > 3):
-            # 一般情况下, 出版时间会被拆分到desc_list[-2]
-            # 但是如果出版时间是2008/6这种格式, 2008会被拆分到desc_list[-3], 6会被拆分到desc_list[-2], 就需要进行特殊处理
-            if (check_if_year_or_not(desc_list[-3])):
-                split_pos = -4
+    if isinstance(list_soup, bs4.element.Tag):  # 注意点2：增加一个if判断语句以及后续代码的缩进
+
+        for douban_info in list_soup.findAll('dd'):
+            title = douban_info.find('a', {
+                'class': 'title'}).string.strip()
+            desc = douban_info.find('div', {'class': 'desc'}).string.strip()
+            desc_list = desc.split('/')
+            if (len(desc_list) > 3):
+                # 一般情况下, 出版时间会被拆分到desc_list[-2]
+                # 但是如果出版时间是2008/6这种格式, 2008会被拆分到desc_list[-3], 6会被拆分到desc_list[-2], 就需要进行特殊处理
+                if (check_if_year_or_not(desc_list[-3])):
+                    split_pos = -4
+                else:
+                    split_pos = -3
+                author_info = '作者/译者：' + '/'.join(desc_list[0:split_pos]) + string_return
+                pub_info = '出版信息：' + '/'.join(desc_list[split_pos:]) + string_return
             else:
-                split_pos = -3
-            author_info = '作者/译者：' + '/'.join(desc_list[0:split_pos]) + string_return
-            pub_info =    '出版信息：' + '/'.join(desc_list[split_pos:]) + string_return
-        else:
-            author_info = ''
-            pub_info =    '作者/译者/出版信息：' + '/'.join(desc_list) + string_return
-        rating = douban_info.find('span', {
-            'class':'rating_nums'})
-        rating = get_rating(rating)
-        file_content += "*%d\t《%s》\t评分：%s\n\t%s%s\n\n" % (
+                author_info = ''
+                pub_info = '作者/译者/出版信息：' + '/'.join(desc_list) + string_return
+            rating = douban_info.find('span', {
+                'class': 'rating_nums'})
+            rating = get_rating(rating)
+            file_content += "*%d\t《%s》\t评分：%s\n\t%s%s\n\n" % (
                 item_num, title, rating, author_info, pub_info)
-        item_num += 1
+            item_num += 1
 
 
 def music_spider(soup, item_num):
@@ -129,21 +137,21 @@ def music_spider(soup, item_num):
     list_soup = soup.find('div', {'class': 'mod music-list'})
     for douban_info in list_soup.findAll('dd'):
         title = douban_info.find('a', {
-            'class':'title'}).string.strip()
-        desc = douban_info.find('div', {'class':'desc'}).string.strip()
+            'class': 'title'}).string.strip()
+        desc = douban_info.find('div', {'class': 'desc'}).string.strip()
         desc_info = '音乐信息：' + desc
         rating = douban_info.find('span', {
-            'class':'rating_nums'})
+            'class': 'rating_nums'})
         rating = get_rating(rating)
         file_content += "*%d\t《%s》\t评分：%s\n\t%s\n\n" % (
-                item_num, title, rating, desc_info)
+            item_num, title, rating, desc_info)
         item_num += 1
 
 
 def each_page_spider(douban_tag, page):
     global file_content
 
-    item_num = page * 15 # 每页有15个条目
+    item_num = page * 15  # 每页有15个条目
     url = "http://www.douban.com/tag/%s/%s?start=%d" % (douban_tag, object, item_num)
     item_num += 1
     source_code = requests.get(url)
@@ -166,7 +174,7 @@ def douban_spider(douban_tag):
 
     title_divide = '\n' + '--' * 30 + '\n' + '--' * 30 + '\n'
     file_content += title_divide + '\t' * 4 + \
-            douban_tag + '：' + title_divide
+                    douban_tag + '：' + title_divide
 
     for page in range(0, page_num):
         each_page_spider(douban_tag, page)
@@ -189,7 +197,7 @@ def do_write():
 
 
 def main():
-    if object not in ['movie','book','music']:
+    if object not in ['movie', 'book', 'music']:
         print_encode('抓取对象的取值%s无效! 请为object设置movie, book或music中的任一值...' % object)
         return
 
