@@ -26,7 +26,7 @@ from bs4 import BeautifulSoup
 # ==================== 可配置参数 start ====================
 
 object = 'book'  # 抓取对象
-tag_list = ['计算机软件']  # 感兴趣的任意关键字
+tag_list = ['电子商务']  # 感兴趣的任意关键字
 page_num = 1  # 每个标签抓取的页数, 必须为正整数
 
 # object = 'book' # 抓取对象
